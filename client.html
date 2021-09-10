@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<style>
+    #container {
+        margin: 0px auto;
+        width: 500px;
+        height: 375px;
+        border: 10px #333 solid;
+    }
+    #videoElement {
+        width: 500px;
+        height: 375px;
+        background-color: #666;
+    }
+    #videoElement1 {
+        width: 500px;
+        height: 375px;
+        background-color: #666;
+    }
+    </style>
+<body>
+    <div class='pokemon'></div>
+    <div id="container">
+        <video autoplay="true" id="videoElement">
+        
+        </video>
+        <video autoplay="true" id="videoElement1" muted>
+        
+        </video>
+        <div>     <input type = "text" id = "username" />       
+            <input type = "text" id = "otherUsernameInput" />
+            
+
+            <button id = "connectToOtherUsernameBtn">Establish connection</button> 
+         </div> 
+         <div>
+             <button id='accept'>Accept call</button>
+         </div>
+    </div>
+    <script src="https://cdn.socket.io/3.1.3/socket.io.min.js" integrity="sha384-cPwlPLvBTa3sKAgddT6krw0cJat7egBga3DJepJyrLl4Q9/5WLra3rrnMcyTyOnh" crossorigin="anonymous"></script>
+    <script>
+        var username1 = localStorage.getItem('username')
+        var mystream;
+        var configuration = { 
+         "iceServers": [{ "url": "stun:stun.1.google.com:19302" }] 
+      }; 
+       var myConnection;
+        document.addEventListener('DOMContentLoaded', (async ()=>{
+            const socket = io.connect("http://192.168.1.21:5000",{auth:{username:username1}});
+            var video = document.querySelector("#videoElement");
+            console.log(navigator.mediaDevices)
+            if (navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(function (stream) {
+                    mystream = stream;
+                    video.srcObject = stream;
+                    
+
+                    })
+                    .catch(function (err0r) {
+                    console.log("Something went wrong!",err0r);
+                    });
+            }
+            video.addEventListener('loadedmetadata',()=>{
+                myConnection = new webkitRTCPeerConnection(configuration); 
+                console.log("RTCPeerConnection object was created"); 
+                console.log(myConnection); 
+            })
+           
+            document.getElementById('connectToOtherUsernameBtn').addEventListener("click", function(event){ 
+                console.log('click')
+                var username =  document.getElementById('username').value; 
+                var room =  document.getElementById('otherUsernameInput').value;  
+                console.log('click')
+                socket.emit('incoming call',{room:room,caller:username1,receiver:username})
+
+                
+            });
+
+            document.getElementById('accept').addEventListener("click", function(event){ 
+           
+                socket.emit('accept call',{room:room,caller:username1,receiver:username})
+
+                
+            });
+
+            socket.on('incoming call res',(data)=>{
+                console.log(data)
+            })
+
+            socket.on('accept call res',(data)=>{
+                myConnection.createOffer(function (offer) { 
+                console.log(); 
+                socket.emit('offer',{room:room,offer:offer})
+                myConnection.setLocalDescription(offer); 
+                }, function (error) { 
+                    alert("An error has occurred."); 
+                }); 
+            })
+            socket.on('offer res',(data)=>{
+                console.log(data)
+            })
+
+
+        
+        }))
+
+    </script>
+</body>
+</html>
