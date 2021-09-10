@@ -23,6 +23,9 @@
         height: 375px;
         background-color: #666;
     }
+    #accept{
+        display: none;
+    }
     </style>
 <body>
     <div class='pokemon'></div>
@@ -51,6 +54,8 @@
          "iceServers": [{ "url": "stun:stun.1.google.com:19302" }] 
       }; 
        var myConnection;
+       var room;
+       var username;
         document.addEventListener('DOMContentLoaded', (async ()=>{
             const socket = io.connect("http://192.168.1.21:5000",{auth:{username:username1}});
             var video = document.querySelector("#videoElement");
@@ -69,14 +74,25 @@
             }
             video.addEventListener('loadedmetadata',()=>{
                 myConnection = new webkitRTCPeerConnection(configuration); 
+                myConnection.onicecandidate = function (event) { 
+                    if (event.candidate) { 
+                    socket.emit('candidate',{room:room,candidate:event.candidate}) 
+                    } 
+                }; 
+                myConnection.ontrack = (event)=>{
+                    console.log(event.streams)
+                    document.getElementById('videoElement1').srcObject = event.streams[0];
+                    document.getElementById('videoElement1').play();
+                }
+                myConnection.addTrack(mystream.getTracks()[0],mystream);
                 console.log("RTCPeerConnection object was created"); 
                 console.log(myConnection); 
             })
            
             document.getElementById('connectToOtherUsernameBtn').addEventListener("click", function(event){ 
                 console.log('click')
-                var username =  document.getElementById('username').value; 
-                var room =  document.getElementById('otherUsernameInput').value;  
+                username =  document.getElementById('username').value; 
+                room =  document.getElementById('otherUsernameInput').value;  
                 console.log('click')
                 socket.emit('incoming call',{room:room,caller:username1,receiver:username})
 
@@ -84,27 +100,50 @@
             });
 
             document.getElementById('accept').addEventListener("click", function(event){ 
-           
+                
                 socket.emit('accept call',{room:room,caller:username1,receiver:username})
 
                 
             });
 
             socket.on('incoming call res',(data)=>{
-                console.log(data)
+                room = data.room;
+                username =data.caller;
+                document.getElementById('accept').style.display='flex'
+                console.log(data,room,username)
             })
 
             socket.on('accept call res',(data)=>{
+                console.log(data,username,room); 
+                
                 myConnection.createOffer(function (offer) { 
-                console.log(); 
-                socket.emit('offer',{room:room,offer:offer})
-                myConnection.setLocalDescription(offer); 
+                
+                    socket.emit('offer',{room:room,offer:offer})
+                    myConnection.setLocalDescription(offer); 
                 }, function (error) { 
                     alert("An error has occurred."); 
                 }); 
             })
             socket.on('offer res',(data)=>{
+                console.log(data);
+                myConnection.setRemoteDescription(data.offer);
+                myConnection.createAnswer(function (answer) { 
+                myConnection.setLocalDescription(answer); 
+                    
+                    socket.emit('answer',{room:room,answer:answer});
+                    
+            }, function (error) { 
+                alert("oops...error"); 
+            }); 
+            })
+            socket.on('answer res',(data)=>{
+                console.log(data);
+                myConnection.setRemoteDescription(data.answer);
+
+            })
+            socket.on('candidate res',(data)=>{
                 console.log(data)
+                myConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
             })
 
 
